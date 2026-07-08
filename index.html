@@ -1,0 +1,1077 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="color-scheme" content="light">
+    <title>Aquarium RNG - V1.0 Master</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700;900&display=swap');
+
+        :root {
+            --rarity-common: #a8dadc;
+            --rarity-uncommon: #52b788;
+            --rarity-rare: #4ea8de;
+            --rarity-epic: #9b5de5;
+            --rarity-mythic: #ff9f1c;
+            --rarity-omega: #e63946;
+        }
+
+        * { 
+            box-sizing: border-box; 
+            user-select: none; 
+            font-family: 'Fredoka', sans-serif; 
+            -webkit-tap-highlight-color: rgba(0,0,0,0) !important; 
+            outline: none;
+            margin: 0; 
+            padding: 0; 
+        }
+
+        body { 
+            overflow: hidden; 
+            background-color: #000; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            height: 100vh; 
+            width: 100vw; 
+            touch-action: none;
+        }
+
+        #game-outer { 
+            width: 100vw; 
+            height: 100vh; 
+            background: #fff; 
+            position: relative; 
+            overflow: hidden; 
+        }
+
+        /* --- STARTUP SEQUENCE --- */
+        #loading-screen { 
+            position: absolute; 
+            top: 0; 
+            left: 0; 
+            width: 100%; 
+            height: 100%; 
+            background: linear-gradient(135deg, #023e8a 0%, #00b4d8 100%); 
+            z-index: 9999; 
+            display: flex; 
+            flex-direction: column; 
+            justify-content: center; 
+            align-items: center; 
+            transition: opacity 0.6s cubic-bezier(0.25, 1, 0.5, 1), transform 0.6s cubic-bezier(0.25, 1, 0.5, 1); 
+            overflow: hidden; 
+            cursor: pointer; 
+        }
+        
+        #loading-screen.dismiss { 
+            opacity: 0; 
+            transform: scale(1.15); 
+            pointer-events: none; 
+        }
+        
+        .load-bubble { 
+            position: absolute; 
+            bottom: -20px; 
+            background: rgba(255, 255, 255, 0.2); 
+            border-radius: 50%; 
+            animation: floatUp linear infinite; 
+        }
+        
+        @keyframes floatUp { 
+            0% { transform: translateY(0) scale(0.8); opacity: 0; } 
+            20% { opacity: 1; } 
+            100% { transform: translateY(-120vh) scale(1.5); opacity: 0; } 
+        }
+        
+        .loading-title-container { 
+            animation: bob 3s ease-in-out infinite; 
+            animation-delay: 1s; 
+        }
+        
+        .loading-title { 
+            font-size: 52px; 
+            font-weight: 900; 
+            color: white; 
+            text-align: center; 
+            line-height: 1; 
+            margin-bottom: 20px; 
+            text-shadow: 0 8px 20px rgba(0,0,0,0.3); 
+            z-index: 2; 
+        }
+        
+        .title-word { 
+            display: inline-block; 
+            opacity: 0; 
+            transform: translateY(30px) scale(0.9); 
+            animation: dropIn 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; 
+        }
+        
+        .w1 { animation-delay: 0.2s; } 
+        .w2 { animation-delay: 0.4s; font-size: 64px; color: #caf0f8; }
+        
+        @keyframes dropIn { 
+            to { opacity: 1; transform: translateY(0) scale(1); } 
+        }
+        
+        .loading-status { 
+            color: rgba(255,255,255,0.9); 
+            font-weight: 700; 
+            font-size: 14px; 
+            margin-bottom: 12px; 
+            z-index: 2; 
+            text-transform: uppercase; 
+            letter-spacing: 1px; 
+            transition: opacity 0.2s; 
+            text-align: center;
+        }
+        
+        .loading-bar-container { 
+            width: 65%; 
+            max-width: 400px; 
+            height: 20px; 
+            background: rgba(0,0,0,0.25); 
+            border-radius: 12px; 
+            border: 3px solid rgba(255,255,255,0.9); 
+            overflow: hidden; 
+            box-shadow: 0 8px 15px rgba(0,0,0,0.2); 
+            z-index: 2; 
+            transition: opacity 0.4s; 
+        }
+        
+        #loading-fill { 
+            height: 100%; 
+            width: 0%; 
+            background: #fff; 
+            border-radius: 4px; 
+            transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1); 
+            position: relative; 
+            overflow: hidden; 
+        }
+        
+        #loading-fill::after { 
+            content: ''; 
+            position: absolute; 
+            top: 0; 
+            left: -100%; 
+            width: 50%; 
+            height: 100%; 
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.6), transparent); 
+            animation: sweep 1s infinite linear; 
+        }
+        
+        @keyframes sweep { to { left: 200%; } }
+        
+        .click-to-start-text { 
+            display: inline-block; 
+            animation: pulse 1.5s infinite; 
+            font-size: 20px; 
+            color: #ffca3a; 
+        }
+        
+        @keyframes pulse { 
+            0%, 100% { transform: scale(1); opacity: 1; } 
+            50% { transform: scale(1.05); opacity: 0.7; } 
+        }
+        
+        @keyframes bob { 
+            0%, 100% { transform: translateY(0px); } 
+            50% { transform: translateY(-10px); } 
+        }
+        
+        .click-to-start { 
+            position: absolute; 
+            bottom: 20%; 
+            color: white; 
+            font-weight: 900; 
+            font-size: 20px; 
+            animation: pulse 1.5s infinite; 
+            cursor: pointer; 
+            display: none; 
+            padding: 15px 30px; 
+            background: rgba(0,0,0,0.3); 
+            border-radius: 20px; 
+            z-index: 10; 
+            border: 2px solid white;
+        }
+
+        /* --- HUD ELEMENTS --- */
+        #save-indicator { 
+            position: absolute; 
+            top: 15px; 
+            left: 50%; 
+            transform: translateX(-50%); 
+            background: rgba(0,0,0,0.5); 
+            color: #fff; 
+            padding: 6px 16px; 
+            border-radius: 16px; 
+            font-size: 13px; 
+            font-weight: 700; 
+            opacity: 0; 
+            transition: opacity 0.3s; 
+            z-index: 100; 
+            pointer-events: none; 
+            backdrop-filter: blur(4px); 
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2); 
+        }
+
+        #hud-top { 
+            position: absolute; 
+            top: 35px; 
+            width: 100%; 
+            padding: 0 5%; 
+            display: flex; 
+            justify-content: space-between; 
+            z-index: 20; 
+            gap: 5px; 
+        }
+        
+        .hud-pill { 
+            background: rgba(255, 255, 255, 0.95); 
+            backdrop-filter: blur(4px); 
+            padding: 8px 16px; 
+            border-radius: 20px; 
+            font-weight: 700; 
+            font-size: 16px; 
+            color: #4a2f1d; 
+            box-shadow: 0 6px 0px rgba(0,0,0,0.15); 
+            display: flex; 
+            align-items: center; 
+            gap: 6px; 
+            transition: transform 0.1s; 
+        }
+
+        #toast-container { 
+            position: absolute; 
+            top: 85px; 
+            left: 50%; 
+            transform: translateX(-50%); 
+            display: flex; 
+            flex-direction: column; 
+            gap: 6px; 
+            z-index: 50; 
+            pointer-events: none; 
+        }
+        
+        .toast { 
+            background: rgba(255,255,255,0.95); 
+            padding: 8px 20px; 
+            border-radius: 16px; 
+            box-shadow: 0 6px 15px rgba(0,0,0,0.2); 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            animation: slideDown 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), fadeOut 0.4s ease-in 1.5s forwards; 
+            font-weight: 900; 
+            font-size: 16px; 
+            line-height: 1.1; 
+        }
+        
+        .toast-odds { 
+            font-size: 12px; 
+            opacity: 0.7; 
+            color: #4a2f1d; 
+            margin-top: 2px; 
+        }
+        
+        @keyframes slideDown { 
+            from { transform: translateY(-20px) scale(0.9); opacity: 0; } 
+            to { transform: translateY(0) scale(1); opacity: 1; } 
+        }
+        
+        @keyframes fadeOut { 
+            to { opacity: 0; transform: translateY(-10px); } 
+        }
+
+        #auto-controls { 
+            position: absolute; 
+            bottom: 165px; 
+            left: 50%; 
+            transform: translateX(-50%); 
+            display: flex; 
+            gap: 10px; 
+            z-index: 20; 
+            display: none; 
+        }
+        
+        #auto-controls button { 
+            background: #fff; 
+            border: 3px solid #e0d5c1; 
+            border-radius: 14px; 
+            padding: 6px 16px; 
+            font-weight: 900; 
+            color: #8b6b5d; 
+            cursor: pointer; 
+            box-shadow: 0 4px 0 #e0d5c1; 
+            font-size: 11px; 
+            text-transform: uppercase; 
+            transition: all 0.1s; 
+        }
+        
+        #auto-controls button.active { 
+            background: #52b788; 
+            color: white; 
+            border-color: #40916c; 
+            box-shadow: 0 4px 0 #40916c; 
+        }
+        
+        #auto-controls button:active { 
+            transform: translateY(4px); 
+            box-shadow: 0 0 0 transparent; 
+        }
+
+        #buff-timer { 
+            position: absolute; 
+            top: 120px; 
+            left: 50%; 
+            transform: translateX(-50%); 
+            background: linear-gradient(135deg, #ff9f1c 0%, #e63946 100%); 
+            color: white; 
+            padding: 4px 12px; 
+            border-radius: 12px; 
+            font-size: 14px; 
+            font-weight: 900; 
+            opacity: 0; 
+            transition: opacity 0.3s; 
+            z-index: 40; 
+            box-shadow: 0 4px 10px rgba(230, 57, 70, 0.4); 
+            text-transform: uppercase; 
+            pointer-events: none; 
+            border: 2px solid white; 
+            display: flex; 
+            align-items: center; 
+            gap: 4px;
+        }
+        
+        #buff-timer.show { opacity: 1; }
+
+        /* --- ENVIRONMENT --- */
+        #room-bg { 
+            position: absolute; top: 0; width: 100%; height: 72%; 
+            background: repeating-linear-gradient(90deg, #fdf6ec, #fdf6ec 35px, #f5ead8 35px, #f5ead8 70px); 
+        }
+        
+        #wainscoting { 
+            position: absolute; bottom: 28%; width: 100%; height: 22%; 
+            background: #e3d3b9; border-top: 6px solid #d4c2a5; 
+            background-image: repeating-linear-gradient(90deg, transparent, transparent 40px, rgba(0,0,0,0.03) 40px, rgba(0,0,0,0.03) 45px); 
+        }
+        
+        #window { 
+            position: absolute; top: 18%; left: 10vw; width: 12vh; height: 16vh; min-width: 100px; min-height: 130px; 
+            background: linear-gradient(180deg, #ff7eb3 0%, #ffb703 100%); 
+            border: 8px solid #6f4228; border-radius: 8px; 
+            box-shadow: 0 15px 25px rgba(0,0,0,0.1), inset 0 0 20px rgba(255,255,255,0.4); 
+            overflow: hidden; 
+        }
+        
+        #window::before { content: ''; position: absolute; top: 0; left: 50%; width: 6px; height: 100%; background: #6f4228; transform: translateX(-50%); box-shadow: 2px 0 5px rgba(0,0,0,0.3); z-index: 2; }
+        #window::after { content: ''; position: absolute; top: 50%; left: 0; width: 100%; height: 6px; background: #6f4228; transform: translateY(-50%); box-shadow: 0 2px 5px rgba(0,0,0,0.3); z-index: 2; }
+        
+        #window-clouds { 
+            position: absolute; top: 30%; left: -10px; width: 120%; height: 8px; background: rgba(255, 255, 255, 0.5); border-radius: 4px; 
+            box-shadow: 15px 25px 0 4px rgba(255, 255, 255, 0.4), -5px 50px 0 2px rgba(255, 255, 255, 0.3); z-index: 1; animation: drift 20s linear infinite; 
+        }
+        
+        @keyframes drift { 0% { transform: translateX(-10px); } 50% { transform: translateX(5px); } 100% { transform: translateX(-10px); } }
+        
+        #light-rays { 
+            position: absolute; top: 18%; left: 10vw; width: 30vw; height: 50vh; 
+            background: linear-gradient(135deg, rgba(255, 214, 112, 0.25) 0%, transparent 80%); 
+            transform-origin: top left; transform: skewX(-15deg); z-index: 1; pointer-events: none; 
+        }
+        
+        #shelf { position: absolute; top: 22%; right: 10vw; width: 15vw; max-width: 150px; min-width: 110px; height: 12px; background: #6f4228; border-radius: 6px; box-shadow: 0 10px 15px rgba(0,0,0,0.2); }
+        .book { position: absolute; bottom: 12px; width: 16px; border-radius: 3px 3px 0 0; }
+        .book-1 { left: 15px; height: 45px; background: #e63946; transform: rotate(-8deg); transform-origin: bottom left; }
+        .book-2 { left: 35px; height: 50px; background: #457b9d; }
+        .book-3 { left: 53px; height: 38px; background: #2a9d8f; }
+        
+        .potted-plant { position: absolute; bottom: 12px; right: 10px; width: 22px; height: 20px; background: #d4a373; border-radius: 4px 4px 10px 10px; }
+        .potted-plant::before { content: ''; position: absolute; top: -18px; left: -6px; width: 16px; height: 16px; background: #52b788; border-radius: 50% 0 50% 0; transform: rotate(15deg); }
+        .potted-plant::after { content: ''; position: absolute; top: -14px; left: 8px; width: 14px; height: 14px; background: #40916c; border-radius: 50% 0 50% 0; transform: rotate(80deg); }
+        
+        #picture-frame { 
+            position: absolute; top: 15%; left: 35%; width: 8vh; height: 11vh; min-width: 70px; min-height: 90px; background: #fff; 
+            border: 6px solid #4a2f1d; box-shadow: 0 10px 15px rgba(0,0,0,0.1), inset 0 0 8px rgba(0,0,0,0.1); transform: rotate(2deg); 
+        }
+        #picture-frame::after { content: ''; position: absolute; top: 8px; left: 8px; right: 8px; bottom: 8px; background: linear-gradient(135deg, #ff9f1c 0%, #e63946 100%); border-radius: 30px 0 30px 0; }
+        
+        #lamp-glow { position: absolute; top: 90px; left: 45%; transform: translateX(-50%); width: 160px; height: 160px; background: radial-gradient(circle, rgba(255,200,0,0.4) 0%, rgba(255,200,0,0) 70%); border-radius: 50%; pointer-events: none; }
+        #lamp { position: absolute; top: 80px; left: 45%; transform: translateX(-50%); width: 45px; height: 60px; background: #2b2b2b; border-radius: 0 0 25px 25px; box-shadow: inset 0 -5px 15px rgba(255,200,0,0.8); }
+        #lamp::before { content: ''; position: absolute; top: -100px; left: 20px; width: 5px; height: 100px; background: #111; }
+        
+        #desk { position: absolute; bottom: 0; width: 100%; height: 28%; background: #4a2f1d; border-top: 14px solid #6f4228; box-shadow: inset 0 25px 35px rgba(0,0,0,0.5); }
+        #desk-mat { position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 60vw; max-width: 600px; height: 8vh; min-height: 60px; background: #3d2516; border-radius: 0 0 15px 15px; }
+        
+        #mug { 
+            position: absolute; bottom: 28%; left: 12vw; width: 24px; height: 28px; background: #f28482; border-radius: 3px 3px 8px 8px; 
+            z-index: 15; box-shadow: -5px 10px 15px rgba(0,0,0,0.4), inset -3px 0 5px rgba(0,0,0,0.2); 
+        }
+        #mug::before { content:''; position: absolute; top: 5px; right: -8px; width: 12px; height: 16px; border: 4px solid #f28482; border-left: none; border-radius: 0 8px 8px 0; }
+        .steam { position: absolute; top: -15px; left: 6px; width: 4px; height: 15px; background: rgba(255,255,255,0.4); border-radius: 2px; filter: blur(1px); animation: rise 3s infinite ease-in; }
+        .steam.s2 { left: 14px; height: 10px; animation-duration: 2.5s; animation-delay: 0.5s; }
+        @keyframes rise { 0% { transform: translateY(0) scale(1); opacity: 1; } 100% { transform: translateY(-20px) scale(2); opacity: 0; } }
+        
+        #vignette { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: radial-gradient(circle at 50% 50%, transparent 40%, rgba(139, 107, 93, 0.3) 100%); pointer-events: none; z-index: 18; mix-blend-mode: multiply; }
+
+        /* --- AQUARIUM --- */
+        #aquarium-wrapper { 
+            position: absolute; bottom: 28%; left: 50%; transform: translateX(-50%); width: 35vh; height: 32vh; min-width: 260px; min-height: 240px; z-index: 10; cursor: pointer; 
+        }
+        #bowl-shadow { position: absolute; bottom: -20px; left: 10%; width: 80%; height: 40px; background: rgba(0,0,0,0.6); border-radius: 50%; filter: blur(8px); z-index: 0; }
+        #bowl-glass { 
+            width: 100%; height: 100%; border-radius: 45% 45% 48% 48%; background: radial-gradient(circle at 30% 30%, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0) 60%), rgba(180, 230, 255, 0.15); 
+            box-shadow: inset 15px -20px 40px rgba(0,0,0,0.3), inset -15px 0 40px rgba(255,255,255,0.8), inset 0 -8px 20px rgba(0, 150, 200, 0.4), 0 15px 25px rgba(0,0,0,0.2); 
+            position: relative; overflow: hidden; border: 1px solid rgba(255,255,255,0.5); border-top: none; z-index: 2; pointer-events: none;
+        }
+        #bowl-rim { position: absolute; top: -8px; left: 15%; width: 70%; height: 24px; border: 4px solid rgba(255,255,255,0.9); border-radius: 50%; box-shadow: 0 4px 10px rgba(0,0,0,0.15), inset 0 3px 8px rgba(255,255,255,0.9), inset 0 -2px 5px rgba(0,0,0,0.1); z-index: 15; background: rgba(255,255,255,0.1); pointer-events: none;}
+        #bowl-glare { position: absolute; top: 15%; left: 4%; width: 35%; height: 70%; border-radius: 50%; background: linear-gradient(90deg, rgba(255,255,255,0.6) 0%, rgba(255,255,255,0) 100%); transform: rotate(-15deg); pointer-events: none; z-index: 10; filter: blur(1px); }
+        #water { position: absolute; bottom: 0; width: 100%; height: 75%; background: radial-gradient(circle at 50% 120%, rgba(0, 119, 182, 0.85) 0%, rgba(0, 180, 216, 0.4) 100%); overflow: hidden; pointer-events: none;}
+        #water-wave { position: absolute; top: -10px; left: -50%; width: 200%; height: 20px; background: rgba(255,255,255,0.15); border-radius: 40%; animation: wave-motion 6s infinite linear; }
+        @keyframes wave-motion { 0% { transform: translateX(0) rotate(0); } 100% { transform: translateX(50px) rotate(360deg); } }
+        
+        .decor-sand { position: absolute; bottom: -10px; width: 100%; height: 40px; background: #d4a373; border-radius: 50% 50% 0 0; box-shadow: inset 0 10px 10px rgba(0,0,0,0.2); }
+        .decor-plant { position: absolute; bottom: 15px; left: 50px; width: 14px; height: 50px; background: #2d6a4f; border-radius: 10px 10px 0 0; transform-origin: bottom center; animation: sway 3s infinite alternate ease-in-out; box-shadow: inset -3px 0 5px rgba(0,0,0,0.3); }
+        .decor-plant.right { left: auto; right: 50px; height: 70px; background: #40916c; animation-delay: 0.5s; }
+        @keyframes sway { 0% { transform: rotate(-10deg); } 100% { transform: rotate(10deg); } }
+        #aquarium-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 5; }
+
+        #feed-hint { 
+            position: absolute; top: -35px; left: 50%; transform: translateX(-50%); 
+            background: #ff9f1c; color: white; padding: 6px 14px; border-radius: 14px; 
+            font-weight: 900; font-size: 14px; opacity: 0; transition: opacity 0.3s; 
+            box-shadow: 0 6px 15px rgba(255, 159, 28, 0.4); pointer-events: none; 
+            white-space: nowrap; animation: bob 2s infinite; z-index: 20; 
+            border: 2px solid white; display: flex; align-items: center; gap: 4px;
+        }
+        #feed-hint.show { opacity: 1; }
+
+        /* --- PERFECTLY SCALED RESPONSIVE UI --- */
+        #bottom-ui { 
+            position: absolute; 
+            bottom: 2vh; 
+            width: 100%; 
+            display: flex; 
+            justify-content: center; 
+            align-items: flex-end; 
+            gap: 1.5vw; 
+            padding: 0 2vw; 
+            z-index: 20; 
+        }
+        
+        .roblox-btn { 
+            background: white; 
+            display: flex; 
+            flex-direction: column; 
+            justify-content: center; 
+            align-items: center; 
+            box-shadow: 0 6px 0px rgba(0,0,0,0.15); 
+            cursor: pointer; 
+            transition: transform 0.1s, box-shadow 0.1s, background-color 0.2s; 
+            font-weight: 700; 
+            color: #6f4228; 
+            text-transform: uppercase; 
+            border-radius: 20px;
+        }
+        .roblox-btn:active { transform: translateY(4px); box-shadow: 0 2px 0px rgba(0,0,0,0.15); }
+
+        /* Outer Buttons (Smallest) */
+        .roblox-btn-outer { 
+            width: 14vw; 
+            max-width: 65px; 
+            height: 14vw; 
+            max-height: 60px; 
+            font-size: clamp(7px, 2.2vw, 9px); 
+            border-radius: 12px;
+        }
+        .roblox-btn-outer .btn-icon { font-size: clamp(16px, 4vw, 22px); margin-bottom: 2px; }
+
+        /* Inner Buttons (Medium) */
+        .roblox-btn-inner { 
+            width: 17vw; 
+            max-width: 80px; 
+            height: 17vw; 
+            max-height: 75px; 
+            font-size: clamp(8px, 2.5vw, 11px); 
+            border-radius: 16px; 
+        }
+        .roblox-btn-inner .btn-icon { font-size: clamp(20px, 5vw, 28px); margin-bottom: 2px; }
+        
+        /* The Roll Button (Massive Soft Squircle) */
+        .roblox-btn-center { 
+            width: 25vw; 
+            max-width: 130px; 
+            height: 20vw; 
+            max-height: 100px; 
+            font-size: clamp(14px, 4vw, 24px); 
+            background: linear-gradient(180deg, #ffca3a 0%, #ffb703 100%); 
+            color: #7f5500; 
+            box-shadow: 0 10px 0px #b57a00; 
+            border-radius: clamp(16px, 5vw, 28px); 
+            border: clamp(2px, 0.6vw, 4px) solid #fff; 
+            z-index: 25;
+        }
+        .roblox-btn-center:active { transform: translateY(8px); box-shadow: 0 2px 0px #b57a00; }
+        .roblox-btn-center .btn-icon { font-size: clamp(28px, 7.5vw, 46px); margin-bottom: 2px; filter: drop-shadow(0 4px 0 rgba(0,0,0,0.15)); }
+
+        /* --- MODALS & MENUS --- */
+        .modal-overlay { 
+            position: absolute; 
+            top: 0; 
+            left: 0; 
+            width: 100%; 
+            height: 100%; 
+            background: rgba(0, 0, 0, 0.7); 
+            backdrop-filter: blur(8px); 
+            z-index: 100; 
+            opacity: 0; 
+            pointer-events: none; 
+            transition: opacity 0.3s cubic-bezier(0.25, 1, 0.5, 1); 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+        }
+        .modal-overlay.active { opacity: 1; pointer-events: all; }
+        
+        .modal-card { 
+            background: #fff8f0; 
+            width: 95vw; 
+            height: 90vh; 
+            border-radius: 24px; 
+            box-shadow: 0 20px 40px rgba(0,0,0,0.3); 
+            padding: 20px; 
+            transform: translateY(40px) scale(0.9); 
+            transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); 
+            display: flex; 
+            flex-direction: column; 
+            position: relative;
+        }
+        .modal-overlay.active .modal-card { transform: translateY(0) scale(1); }
+        
+        #modal-inventory .modal-card, #modal-skills .modal-card { max-width: 800px; height: 80vh; width: 85vw; }
+        #modal-rebirth .modal-card, #modal-settings .modal-card { max-width: 450px; height: auto; max-height: 80vh; width: 90vw; }
+
+        .modal-header { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            margin-bottom: 15px; 
+            z-index: 10; 
+            position: relative; 
+            width: 100%;
+        }
+        .modal-title { font-size: 26px; font-weight: 700; color: #4a2f1d; margin: 0; display: flex; align-items: center; gap: 8px;}
+        
+        .close-circle, .back-btn { 
+            width: 42px; 
+            height: 42px; 
+            min-width: 42px; 
+            flex-shrink: 0; 
+            background: #e0d5c1; 
+            border-radius: 50%; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            font-weight: 700; 
+            font-size: 20px; 
+            cursor: pointer; 
+            box-shadow: 0 4px 0 #c4b8a3; 
+            z-index: 100; 
+        }
+        .close-circle { color: #e63946; }
+        .back-btn { color: #4a2f1d; display: none; margin-right: 10px;}
+        .close-circle:active, .back-btn:active { transform: translateY(2px); box-shadow: 0 2px 0 #c4b8a3; }
+
+        .reset-btn { 
+            background: #e63946; color: white; border: none; padding: 15px 30px; 
+            border-radius: 16px; font-weight: 900; font-size: 18px; cursor: pointer; 
+            box-shadow: 0 6px 0px #9b2226; width: 100%; text-transform: uppercase; 
+            transition: transform 0.1s, box-shadow 0.1s;
+        }
+        .reset-btn:active { transform: translateY(6px); box-shadow: 0 0px 0px #9b2226; }
+
+        .modal-content-inv { overflow-y: auto; flex-grow: 1; padding-right: 5px; }
+        .grid-layout { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 12px; align-content: start;}
+        .grid-slot { 
+            background: #ffffff; border: 3px solid #e0d5c1; border-radius: 16px; display: flex; flex-direction: column; 
+            justify-content: center; align-items: center; padding: 12px 10px; text-align: center; position: relative; cursor: pointer;
+        }
+        .fish-snapshot { width: 60px; height: 60px; object-fit: contain; margin-bottom: 4px;}
+        .count-badge { font-size: 12px; color: white; font-weight: 900; background: #6f4228; border-radius: 10px; padding: 4px 10px; margin-top: 4px; box-shadow: 0 2px 0 rgba(0,0,0,0.2); transition: background 0.2s;}
+
+        /* --- SKILL TREE --- */
+        .tree-viewport { position: relative; width: 100%; flex-grow: 1; overflow: hidden; cursor: grab; border: 4px solid #e0d5c1; border-radius: 16px; background: #f5ead8; box-shadow: inset 0 10px 20px rgba(0,0,0,0.05); }
+        .tree-viewport:active { cursor: grabbing; }
+        .tree-canvas { position: absolute; top: 50%; left: 50%; width: 0; height: 0; }
+        
+        .hex-positioner { position: absolute; transform: translate(-50%, -50%); transition: filter 0.2s; }
+        .hex-wrapper { width: 120px; height: 104px; position: relative; cursor: pointer; transition: all 0.15s cubic-bezier(0.34, 1.56, 0.64, 1); filter: drop-shadow(0px 6px 0px rgba(0,0,0,0.15)); }
+        .hex-wrapper:hover { transform: scale(1.05); }
+        .hex-wrapper:active { transform: scale(0.95) translateY(4px); filter: drop-shadow(0px 2px 0px rgba(0,0,0,0.15)); }
+        .hex-border { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #8b6b5d; clip-path: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%); display: flex; justify-content: center; align-items: center; z-index: 2; }
+        .hex-inner { width: 92%; height: 90%; background: #fdf6ec; clip-path: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%); display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 2px; transition: background-color 0.2s; }
+        
+        .bg-root { background: #e2f0cb; } .bg-cat-loot { background: #f0e6fa; } .bg-cat-player { background: #dceaf5; } .bg-cat-rebirth { background: #ffebcc; } .bg-cat-bm { background: #eaeaea; }
+        
+        /* Cosmic Styling */
+        .bg-cat-cosmic { background: linear-gradient(135deg, #0f0c29, #302b63, #24243e, #0f0c29); background-size: 300% 300%; animation: cosmicPulse 6s ease infinite; color: white;}
+        @keyframes cosmicPulse { 0% {background-position: 0% 50%} 50% {background-position: 100% 50%} 100% {background-position: 0% 50%} }
+        .bg-cat-cosmic .hex-title { color: #fff; text-shadow: 0 0 5px #ff7eb3, 0 0 10px #7b2cbf; }
+        .bg-cat-cosmic .hex-price { background: rgba(255,255,255,0.2); box-shadow: 0 2px 0 rgba(0,0,0,0.5); }
+        .bg-cat-cosmic .hex-icon { text-shadow: 0 0 10px rgba(255, 255, 255, 0.8); }
+
+        .hex-icon { font-size: 28px; margin-top: 0px; text-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .hex-title { font-size: 12px; font-weight: 800; text-align: center; line-height: 1.1; color: #4a2f1d; padding: 0 4px; margin-top: 2px; letter-spacing: -0.2px;}
+        .hex-price { font-size: 11px; font-weight: 700; background: #4a2f1d; color: white; padding: 2px 6px; margin-top: 2px; border-radius: 8px; box-shadow: 0 2px 0 rgba(0,0,0,0.3);}
+
+        /* Reveals */
+        #roll-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255, 255, 255, 0.95); z-index: 200; opacity: 0; pointer-events: none; display: flex; justify-content: center; align-items: center; transition: opacity 0.25s ease; }
+        #roll-overlay.active { opacity: 1; pointer-events: all; }
+        #sunburst { position: absolute; width: 200vw; height: 200vw; background: repeating-conic-gradient(from 0deg, rgba(255,183,3,0.15) 0deg 15deg, transparent 15deg 30deg); animation: spin 20s linear infinite; z-index: 1; }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+        #reveal-card { background: white; border-radius: 36px; padding: 30px; width: 400px; max-width: 80%; box-shadow: 0 30px 60px rgba(0,0,0,0.1); display: flex; flex-direction: column; align-items: center; z-index: 10; transform: scale(0.7); transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        #roll-overlay.active #reveal-card { transform: scale(1); }
+        #reveal-title { font-size: 38px; color: #1d3557; margin: 0 0 5px 0; font-weight: 700; text-align: center; line-height: 1.1; }
+        #reveal-odds { font-size: 22px; font-weight: 700; color: #6f4228; margin-bottom: 16px; opacity: 0.9; }
+        #reveal-tier { font-size: 16px; font-weight: 700; text-transform: uppercase; color: white; padding: 10px 30px; border-radius: 20px; box-shadow: 0 6px 0 rgba(0,0,0,0.05); }
+    </style>
+</head>
+<body>
+
+<div id="game-outer">
+    <div id="save-indicator" class="toast">Game Saved</div>
+    <div id="toast-container"></div>
+    
+    <div id="loading-screen">
+        <div class="load-bubble" style="left: 10%; width: 20px; height: 20px; animation-duration: 4s; animation-delay: 0s;"></div>
+        <div class="load-bubble" style="left: 30%; width: 35px; height: 35px; animation-duration: 5s; animation-delay: 1s;"></div>
+        <div class="load-bubble" style="left: 70%; width: 15px; height: 15px; animation-duration: 3.5s; animation-delay: 0.5s;"></div>
+        <div class="load-bubble" style="left: 85%; width: 45px; height: 45px; animation-duration: 4.5s; animation-delay: 2s;"></div>
+        <div class="load-bubble" style="left: 50%; width: 25px; height: 25px; animation-duration: 3.8s; animation-delay: 1.5s;"></div>
+        <div class="loading-title-container">
+            <div class="loading-title"><span class="title-word w1">AQUARIUM</span><br><span class="title-word w2">RNG</span></div>
+        </div>
+        <div class="loading-status" id="loading-text">Loading Assets...</div>
+        <div class="loading-bar-container"><div id="loading-fill"></div></div>
+    </div>
+
+    <div class="click-to-start" id="start-btn" onclick="window.startAudioEngine()">TAP ANYWHERE TO START</div>
+
+    <div id="room-bg"></div><div id="wainscoting"></div>
+    <div id="window"><div id="window-clouds"></div></div><div id="light-rays"></div>
+    <div id="shelf"><div class="book book-1"></div><div class="book book-2"></div><div class="book book-3"></div><div class="potted-plant"></div></div>
+    <div id="picture-frame"></div><div id="desk"><div id="desk-mat"></div></div>
+    <div id="mug"><div class="steam"></div><div class="steam s2"></div></div>
+    <div id="lamp-glow"></div><div id="lamp"></div><div id="vignette"></div>
+
+    <div id="hud-top">
+        <div class="hud-pill" id="luck-pill">✨ <span id="luck-display">1.0x</span></div>
+        <div class="hud-pill" id="money-pill" style="color: #d08c00;">🪙 <span id="money-display">0</span></div>
+        <div class="hud-pill">🐟 <span id="count-display">0/5</span></div>
+        <div class="hud-pill" id="rebirth-pill" style="display:none; color: #9b5de5;">⏪ <span id="rebirth-display">1.0x</span></div>
+    </div>
+    
+    <div id="buff-timer">SPEED x2</div>
+
+    <div id="aquarium-wrapper" onclick="window.feedFishes()">
+        <div id="feed-hint">🥫 Tap Tank to Feed!</div>
+        <div id="bowl-shadow"></div><div id="bowl-rim"></div>
+        <div id="bowl-glass">
+            <div id="water"><div id="water-wave"></div><div class="decor-sand"></div><div class="decor-plant"></div><div class="decor-plant right"></div></div>
+            <canvas id="aquarium-canvas"></canvas>
+            <div id="bowl-glare"></div>
+        </div>
+    </div>
+
+    <div id="auto-controls">
+        <button id="btn-auto" onclick="window.toggleAuto()">Auto: OFF</button>
+        <button id="btn-hide" onclick="window.toggleHide()" style="display:none;">Hide: OFF</button>
+    </div>
+
+    <div id="bottom-ui">
+        <div style="display: flex; gap: 1.5vw; flex: 1; justify-content: flex-end; align-items: flex-end;">
+            <div class="roblox-btn roblox-btn-outer" onclick="window.openModal('modal-inventory')">
+                <span class="btn-icon">🎒</span> Backpack
+            </div>
+            <div class="roblox-btn roblox-btn-inner" onclick="window.openModal('modal-rebirth')">
+                <span class="btn-icon" style="color:#9b5de5;">⏪</span> Rebirth
+            </div>
+        </div>
+        
+        <div class="roblox-btn roblox-btn-center" id="btn-roll" onclick="window.triggerRoll(true)">
+            <span class="btn-icon">🎲</span> Roll
+        </div>
+        
+        <div style="display: flex; gap: 1.5vw; flex: 1; justify-content: flex-start; align-items: flex-end;">
+            <div class="roblox-btn roblox-btn-inner" onclick="window.openModal('modal-skills')">
+                <span class="btn-icon">⬆️</span> Tech Tree
+            </div>
+            <div class="roblox-btn roblox-btn-outer" onclick="window.openModal('modal-settings')">
+                <span class="btn-icon">⚙️</span> Settings
+            </div>
+        </div>
+    </div>
+
+    <div id="roll-overlay">
+        <div id="sunburst"></div>
+        <div id="reveal-card">
+            <canvas id="reveal-canvas" width="200" height="200" style="margin-bottom: 5px;"></canvas>
+            <h2 id="reveal-title">Entity</h2><div id="reveal-odds">1 / 100</div><span id="reveal-tier">Common</span>
+        </div>
+    </div>
+
+    <div id="modal-inventory" class="modal-overlay" onclick="window.closeModal(event)">
+        <div class="modal-card" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <h3 class="modal-title">Backpack</h3>
+                <div class="close-circle" onclick="window.forceClose()">X</div>
+            </div>
+            <div class="modal-content-inv">
+                <div class="grid-layout" id="inventory-target"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-skills" class="modal-overlay" onclick="window.closeModal(event)">
+        <div class="modal-card" onclick="event.stopPropagation()">
+            <div class="modal-header" style="margin-bottom: 5px;">
+                <div style="display:flex; align-items:center;">
+                    <div class="back-btn" id="skill-back-btn" onclick="window.switchView('root')">⬅️</div>
+                    <h3 class="modal-title" id="skill-title">Tech Tree</h3>
+                </div>
+                <div class="close-circle" onclick="window.forceClose()">X</div>
+            </div>
+            <div class="tree-viewport" id="skill-viewport">
+                <div class="tree-canvas" id="skill-canvas"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-rebirth" class="modal-overlay" onclick="window.closeModal(event)">
+        <div class="modal-card" onclick="event.stopPropagation()">
+            <div class="modal-header" style="margin-bottom: 5px;">
+                <h3 class="modal-title">⏪ Rebirth Portal</h3>
+                <div class="close-circle" onclick="window.forceClose()">X</div>
+            </div>
+            <div id="rebirth-content" style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; text-align: center; gap: 15px;">
+                </div>
+        </div>
+    </div>
+
+    <div id="modal-settings" class="modal-overlay" onclick="window.closeModal(event)">
+        <div class="modal-card" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <h3 class="modal-title">⚙️ Settings</h3>
+                <div class="close-circle" onclick="window.forceClose()">X</div>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 15px; align-items: center; padding: 20px 0;">
+                <button class="reset-btn" onclick="window.wipeSave(event)">⚠️ WIPE SAVE DATA</button>
+                <p style="color: #94a3b8; font-weight: 600; font-size: 14px; margin-top: 10px;">More options coming soon!</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const $ = id => document.getElementById(id);
+    const AudioEngine = {
+        ctx: null, started: false,
+        init() { if(this.started) return; this.ctx = new (window.AudioContext || window.webkitAudioContext)(); this.started = true; this.startMusic(); },
+        playTone(type, f1, f2, t, dur, vol, attack=0.01) {
+            let safeT = Math.max(t, this.ctx.currentTime + 0.01), o = this.ctx.createOscillator(), g = this.ctx.createGain();
+            o.type = type; o.frequency.setValueAtTime(f1, safeT); if(f2) o.frequency.exponentialRampToValueAtTime(f2, safeT+dur*0.5);
+            g.gain.setValueAtTime(0, safeT); g.gain.linearRampToValueAtTime(vol, safeT+attack); g.gain.exponentialRampToValueAtTime(0.001, safeT+dur);
+            o.connect(g); g.connect(this.ctx.destination); o.start(safeT); o.stop(safeT+dur+0.1); return {o, g};
+        },
+        startMusic() {
+            let bLen = 60/75, nTime = this.ctx.currentTime + 0.1, bStep = 0, cIdx = 0;
+            const chords = [ {r:146.83, n:[293.66, 349.23, 440.00, 523.25]}, {r:98.00, n:[349.23, 392.00, 493.88, 587.33]}, {r:130.81, n:[329.63, 392.00, 493.88, 587.33]}, {r:110.00, n:[311.13, 392.00, 440.00, 554.37]} ];
+            const playCh = (c, t, d, v) => c.forEach((f,i) => this.playTone('sine', f, null, t+(i*0.04), d, v, 0.05));
+            const playBa = (f, t, d) => { let {o,g} = this.playTone('triangle', f, null, t, d, 0.4, 0.1); let fl = this.ctx.createBiquadFilter(); fl.type='lowpass'; fl.frequency.value=300; o.disconnect(); o.connect(fl); fl.connect(g); };
+            const sched = () => {
+                if (nTime < this.ctx.currentTime) nTime = this.ctx.currentTime + 0.1;
+                while (nTime < this.ctx.currentTime + 0.5) {
+                    if (bStep%8===0) { playBa(chords[cIdx].r, nTime, bLen*4.5); playCh(chords[cIdx].n, nTime, bLen*6, 0.15); }
+                    if (bStep%8===3) playCh(chords[cIdx].n, nTime+(bLen/2), bLen*2.5, 0.05);
+                    if (bStep%8===7) cIdx = (cIdx+1)%chords.length;
+                    nTime += bLen/2; bStep++;
+                } setTimeout(sched, 100);
+            }; sched();
+        },
+        playSFX(type, tier) {
+            if(!this.started) return; let t = this.ctx.currentTime;
+            if(type === 'click') this.playTone('sine', 600, 800, t, 0.1, 0.15);
+            else if(type === 'buy') this.playTone('triangle', 880, 1108.73, t, 0.4, 0.1);
+            else if(type === 'error') this.playTone('triangle', 150, 100, t, 0.2, 0.15);
+            else if(type === 'feed' || type === 'roll') this.playTone('sine', 300, type==='feed'?500:150, t, 0.1, 0.15);
+            else if(type === 'rebirth') [261.63, 329.63, 392.00, 523.25, 659.25, 783.99, 1046.50].forEach((f,i) => this.playTone('triangle', f, null, t+(i*0.1), 1.0, 0.2, 0.05));
+            else if(type === 'reveal') {
+                let fq = [261.63, 329.63, 392.00];
+                if(tier==='Rare') fq.push(523.25); if(tier==='Epic') fq=[261.63,311.13,392.00,466.16]; if(tier==='Mythic') fq=[261.63,329.63,415.30,523.25,659.25]; if(tier==='Omega') fq=[261.63,311.13,392.00,466.16,587.33,698.46,932.33];
+                fq.forEach((f,i) => this.playTone('sine', f, null, t+(i*0.08), 0.4, 0.15));
+            }
+        }
+    };
+    window.startAudioEngine = () => AudioEngine.init();
+
+    window.addEventListener('load', () => {
+        window.loadGame(); window.initTreeCamera();
+        setTimeout(() => { $('loading-fill').style.width = '35%'; $('loading-text').innerText = "Warming Water..."; }, 400);
+        setTimeout(() => { $('loading-fill').style.width = '75%'; $('loading-text').innerText = "Feeding Fish..."; }, 1200);
+        setTimeout(() => { 
+            $('loading-fill').style.width = '100%'; $('loading-text').innerHTML = "<span class='click-to-start-text'>TAP ANYWHERE TO START</span>";
+            $('loading-screen').addEventListener('click', function() { AudioEngine.init(); this.classList.add('dismiss'); setTimeout(() => this.style.display = 'none', 600); }, { once: true });
+        }, 2000);
+    });
+
+    const toRoman = num => { if(num<1)return""; const l={M:1000,CM:900,D:500,C:100,XC:90,L:50,XL:40,X:10,IX:9,V:5,IV:4,I:1}; let r=''; for(let i in l){while(num>=l[i]){r+=i;num-=l[i];}} return r; };
+
+    let isWiping = false, currentSkillView = 'root', lastRollTime = 0, lastAutoRollTime = 0, lastAnimTime = 0, incomeAccumulator = 0, revealingFish = null;
+    let gameState = { inventory: [], luckMultiplier: 1.0, activeFish: [], money: 0, maxCapacity: 5, autoRollEnabled: false, hideRollsEnabled: false, equippedItem: null, consumables: { flakes: 0, goldenFlakes: 0, diamondFlakes: 0, bait: 0 }, activeBuff: { type: null, timer: 0, multiplier: 1 }, rebirths: 0, rebirthMultiplier: 1.0, skills: { tankLevel: 0, tankCost: 250, fishFlakes: false, unlockedGolden: false, unlockedDiamond: false, playerLuckLevel: 0, playerLuckCost: 100, cosmicLuckLevel: 0, cosmicLuckCost: 50000, quickRollLevel: 0, quickRollCost: 5000, autoRollLevel: 0, autoRollCost: 500, hideRolls: false, cosmicRollUnlocked: false, cosmicRollCost: 250000, unlockedBait: false, baitLevel: 0, baitUpgradeCost: 2500 }, particles: [], floatingTexts: [], foodParticles: [] };
+
+    const fishMatrix = [{name:"Guppy",tier:"Common",weight:650,color:"#4ea8de",size:14,income:1}, {name:"Tetra",tier:"Common",weight:500,color:"#ff70a6",size:16,income:1}, {name:"Molly",tier:"Uncommon",weight:250,color:"#52b788",size:14,income:2}, {name:"Angelfish",tier:"Rare",weight:90,color:"#ffca3a",size:20,income:5}, {name:"Betta",tier:"Epic",weight:30,color:"#9b5de5",size:22,income:15}, {name:"Discus",tier:"Mythic",weight:5,color:"#ff595e",size:26,income:50}, {name:"Arowana",tier:"Omega",weight:0.5,color:"#111111",size:32,income:200}];
+    const tierStyles = { "Common": {color:"#a8dadc", p:15}, "Uncommon": {color:"#52b788", p:25}, "Rare": {color:"#4ea8de", p:40}, "Epic": {color:"#9b5de5", p:60}, "Mythic": {color:"#ff9f1c", p:100}, "Omega": {color:"#e63946", p:180} };
+
+    window.loadGame = function() {
+        const s = localStorage.getItem('aquariumRNG_save');
+        if (s) { try { const p=JSON.parse(s); gameState={...gameState,...p,skills:{...gameState.skills,...p.skills},consumables:{...gameState.consumables,...p.consumables}}; if(p.skills) { if(p.skills.autoRoll3) gameState.skills.autoRollLevel=3; else if(p.skills.autoRoll2) gameState.skills.autoRollLevel=2; else if(p.skills.autoRoll1) gameState.skills.autoRollLevel=1; } if(p.activeFish) gameState.activeFish=p.activeFish.map(f=>new FishEntity(f)); } catch(e){} }
+        if(gameState.autoRollEnabled) { $('btn-auto').classList.add('active'); $('btn-auto').innerText='Auto: ON'; }
+        if(gameState.hideRollsEnabled) { $('btn-hide').classList.add('active'); $('btn-hide').innerText='Hide: ON'; }
+        window.updateFeedHint(); window.updateHUD(); window.buildInventoryGrid();
+    }
+    window.saveGame = function() { if (isWiping) return; const sObj={...gameState, activeFish:gameState.activeFish.map(f=>({name:f.name,tier:f.tier,weight:f.weight,color:f.color,size:f.size,income:f.income})), particles:[], floatingTexts:[], foodParticles:[]}; localStorage.setItem('aquariumRNG_save', JSON.stringify(sObj)); $('save-indicator').style.opacity='1'; setTimeout(()=>$('save-indicator').style.opacity='0',1500); }
+    window.wipeSave = function(e) { e.stopPropagation(); AudioEngine.playSFX('click'); if(confirm("Wipe all progress?")){ isWiping=true; localStorage.removeItem('aquariumRNG_save'); location.reload(); } }
+    setInterval(window.saveGame, 300000); document.addEventListener('visibilitychange', () => { if (document.visibilityState==='hidden') window.saveGame(); }); window.addEventListener('pagehide', window.saveGame);
+
+    const cvs = $('aquarium-canvas'); const ctx = cvs.getContext('2d');
+    function rs() { const r=cvs.parentElement.getBoundingClientRect(); cvs.width=r.width; cvs.height=r.height; } window.addEventListener('resize', rs); rs();
+
+    class FishEntity {
+        constructor(c) { Object.assign(this,c); this.seed=Math.random()*1000; this.x=cvs.width/2; this.y=cvs.height*0.6; this.vx=(Math.random()-0.5)*1.5; this.vy=(Math.random()-0.5)*0.6; this.tX=this.x; this.tY=this.y; this.timer=0; this.flip=this.vx>0?1:-1; }
+        update() {
+            if(--this.timer<=0) { 
+                this.tX=Math.random()*(cvs.width-60)+30; 
+                this.tY=(gameState.activeBuff.timer>0&&gameState.activeBuff.type==='bait')?Math.random()*(cvs.height*0.2)+20:Math.random()*(cvs.height*0.4)+(cvs.height*0.4); 
+                this.timer=Math.random()*150+50; this.vx+=(this.tX-this.x)*0.005; 
+            }
+            this.vx+=(this.tX-this.x)*0.0005; this.vy+=(this.tY-this.y)*0.0005; this.vx*=0.98; this.vy*=0.98;
+            const lim=this.tier==="Omega"?0.8:1.6; this.vx=Math.max(-lim,Math.min(lim,this.vx)); this.vy=Math.max(-0.4,Math.min(0.4,this.vy));
+            this.x+=this.vx; this.y+=this.vy; if(this.vx>0.1)this.flip=1; if(this.vx<-0.1)this.flip=-1;
+        }
+        draw(rCtx=ctx) {
+            const t=(Date.now()/1000)+this.seed, spd=Math.max(0.5,Math.sqrt(this.vx*this.vx+this.vy*this.vy)), wA=Math.sin(t*(8+spd*4))*(0.15+spd*0.1), pA=Math.cos(t*(8+spd*4))*0.2;
+            rCtx.save(); rCtx.translate(this.x, this.y); rCtx.scale(this.flip, 1);
+            if(["Mythic","Epic","Omega"].includes(this.tier)) { rCtx.fillStyle=this.tier==="Omega"?`rgba(155,93,229,0.2)`:`rgba(255,255,255,0.2)`; rCtx.beginPath(); rCtx.arc(0,0,this.size*1.5+(Math.sin(t*2)*5+15),0,Math.PI*2); rCtx.fill(); }
+            rCtx.fillStyle=this.color; rCtx.beginPath(); rCtx.moveTo(0,0); rCtx.quadraticCurveTo(-this.size*0.5, -this.size*1.1, -this.size*0.8, -this.size*0.3); rCtx.fill();
+            rCtx.beginPath(); rCtx.moveTo(0,0); rCtx.quadraticCurveTo(-this.size*0.4, this.size*0.9, -this.size*0.6, this.size*0.3); rCtx.fill();
+            rCtx.save(); rCtx.translate(-this.size*0.7,0); rCtx.rotate(wA); rCtx.beginPath(); rCtx.moveTo(0,0); rCtx.quadraticCurveTo(-this.size*0.5, -this.size*0.6, -this.size*1.2, -this.size*0.6); rCtx.quadraticCurveTo(-this.size*0.9, 0, -this.size*1.2, this.size*0.6); rCtx.quadraticCurveTo(-this.size*0.5, this.size*0.6, 0, 0); rCtx.fill(); rCtx.restore();
+            rCtx.beginPath(); rCtx.ellipse(0,0,this.size,this.size*0.65,0,0,Math.PI*2); rCtx.fill();
+            rCtx.beginPath(); rCtx.ellipse(0,-this.size*0.2,this.size*0.8,this.size*0.3,0,0,Math.PI*2); rCtx.fillStyle="rgba(255,255,255,0.15)"; rCtx.fill();
+            rCtx.save(); rCtx.translate(this.size*0.1,this.size*0.15); rCtx.rotate(pA); rCtx.beginPath(); rCtx.ellipse(0,0,this.size*0.3,this.size*0.12,Math.PI/6,0,Math.PI*2); rCtx.fillStyle=this.color; rCtx.fill(); rCtx.fillStyle="rgba(0,0,0,0.1)"; rCtx.fill(); rCtx.restore();
+            rCtx.beginPath(); rCtx.arc(this.size*0.55,-this.size*0.1,this.size*0.12,0,Math.PI*2); rCtx.fillStyle="#1d3557"; rCtx.fill(); rCtx.beginPath(); rCtx.arc(this.size*0.58,-this.size*0.13,this.size*0.04,0,Math.PI*2); rCtx.fillStyle="white"; rCtx.fill();
+            rCtx.beginPath(); rCtx.ellipse(this.size*0.45,this.size*0.1,this.size*0.15,this.size*0.08,-Math.PI/12,0,Math.PI*2); rCtx.fillStyle="rgba(255,105,135,0.4)"; rCtx.fill();
+            rCtx.restore();
+        }
+    }
+
+    let panX=0, panY=0, zoom=1, isD=false, stX, stY;
+    window.initTreeCamera = function() {
+        const vp=$('skill-viewport'), tCvs=$('skill-canvas'), up=()=>tCvs.style.transform=`translate(${panX}px,${panY}px) scale(${zoom})`;
+        vp.onmousedown=e=>{isD=true;stX=e.clientX-panX;stY=e.clientY-panY;}; window.addEventListener('mousemove',e=>{if(isD){panX=e.clientX-stX;panY=e.clientY-stY;up();}}); window.addEventListener('mouseup',()=>isD=false); vp.onmouseleave=()=>isD=false;
+        vp.addEventListener('touchstart',e=>{if(e.touches.length===1){isD=true;stX=e.touches[0].clientX-panX;stY=e.touches[0].clientY-panY;}}); window.addEventListener('touchmove',e=>{if(isD&&e.touches.length===1){panX=e.touches[0].clientX-stX;panY=e.touches[0].clientY-stY;up();}}); window.addEventListener('touchend',()=>isD=false);
+        vp.onwheel=e=>{e.preventDefault();zoom=Math.max(0.3,Math.min(zoom-=e.deltaY*0.001,2.5));up();};
+    }
+    window.resetTreeCamera = function() { panX=panY=0; zoom=1; $('skill-canvas').style.transform=`translate(0,0) scale(1)`; }
+
+    const hexPos = (q,r) => ({x:Math.round(90*q), y:Math.round(104*r+(Math.abs(q)%2===1?52:0))});
+    const createHex = (ic,ti,pr,bg,on,p) => `<div class="hex-positioner" style="left:${p.x}px; top:${p.y}px;"><div class="hex-wrapper" onclick="${on}"><div class="hex-border"><div class="hex-inner ${bg}"><span class="hex-icon">${ic}</span><span class="hex-title">${ti}</span><span class="hex-price">${pr}</span></div></div></div></div>`;
+
+    window.renderSkillTree = function(view=currentSkillView) {
+        currentSkillView = view; let h='', s=gameState.skills; $('skill-back-btn').style.display=view==='root'?'none':'flex'; $('skill-title').innerHTML=view==='root'?'Tech Tree':view==='loot'?'🧪 Consumables':view==='player'?'🎮 Player Skills':'⏪ Rebirth Rewards';
+        if (view === 'root') {
+            h+=createHex(s.tankLevel>=5?'✅':'🐟', `Bigger Tank ${s.tankLevel>=5?'MAX':toRoman(s.tankLevel+1)}`, s.tankLevel>=5?'MAX CAPACITY':`+5 Slots<br>(${s.tankCost}🪙)`, s.tankLevel>=5?'bg-cat-loot':'bg-root', s.tankLevel>=5?'':'window.upgradeTank()', hexPos(0,0));
+            if (s.tankLevel>0) { h+=createHex('🎮','Player','Open','bg-cat-player',`window.switchView('player')`,hexPos(-1,-1))+createHex('🧪','Loot','Open','bg-cat-loot',`window.switchView('loot')`,hexPos(1,-1))+createHex('🕵️','Black Market','SOON','bg-cat-bm','',hexPos(-1,0))+createHex('⏪','Rebirth Rewards','Open','bg-cat-rebirth',`window.switchView('rebirth')`,hexPos(1,0)); }
+        } else if (view === 'loot') {
+            h+=createHex('🧪','Loot Core','Root','bg-cat-loot','',hexPos(0,0));
+            
+            // Right Branch (Flakes)
+            const lp=[{i:'flakes',ic:'🥫',t:'Fish Flakes',c:500,u:s.fishFlakes},{i:'goldenFlakes',ic:'✨',t:'Golden Flakes',c:1500,u:s.unlockedGolden},{i:'diamondFlakes',ic:'💎',t:'Diamond Flakes',c:5000,u:s.unlockedDiamond}];
+            for(let i=0; i<lp.length; i++) { let p=hexPos(i+1,-Math.floor((i+2)/2)); if(lp[i].u) h+=createHex(lp[i].ic,lp[i].t,`Buy 1x<br>(${lp[i].c}🪙)`,'bg-cat-loot',`window.buyConsumable('${lp[i].i}',${lp[i].c})`,p); else { h+=createHex('🔒',lp[i].t,`Unlock<br>(${lp[i].c}🪙)`,'bg-root',`window.buyConsumable('${lp[i].i}',${lp[i].c})`,p); break; } }
+            
+            // Left Branch (Bait)
+            let bp=hexPos(-1,-1);
+            if(!s.unlockedBait) h+=createHex('🔒','Bait',`Unlock<br>(1000🪙)`,'bg-root',`window.unlockBait()`,bp);
+            else {
+                h+=createHex('🎣','Bait',`Buy 1x<br>(200🪙)`,'bg-cat-loot',`window.buyConsumable('bait',200)`,bp);
+                let bM=[2,5,15,30,50];
+                for(let i=0;i<=s.baitLevel&&i<=4;i++){
+                    let p=hexPos(-(i+2),-Math.floor((i+3)/2));
+                    if(i===4&&s.baitLevel>=4) h+=createHex('✅',`Bait MAX`,`50.0x Multi`,'bg-cat-player','',p);
+                    else if(i<s.baitLevel) h+=createHex('✅',`Bait ${toRoman(i+2)}`,`MAX`,'bg-cat-player','',p);
+                    else { h+=createHex('🎣',`Bait ${toRoman(i+2)}`,`${bM[i+1]}x Multi<br>(${s.baitUpgradeCost}🪙)`,'bg-root',`window.upgradeBait()`,p); break; }
+                }
+            }
+        } else if (view === 'player') {
+            h+=createHex('🎮','Player Core','Root','bg-cat-player','',hexPos(0,0));
+            for (let i=0; i<=s.playerLuckLevel&&i<=5; i++) { let p=hexPos(-(i+1),-Math.floor((i+2)/2)); if(i===5&&s.playerLuckLevel>=5) { h+=createHex('✅',`Base Luck MAX`,`+5.0x Multi`,'bg-cat-player','',p); for(let j=0;j<=s.cosmicLuckLevel&&j<=5;j++){ let cp=hexPos(-(i+1)-(j+1),-Math.floor((i+2)/2)); if(j===5&&s.cosmicLuckLevel>=5) h+=createHex('🌌',`Cosmic Luck MAX`,`ULTIMATE`,'bg-cat-cosmic','',cp); else if(j<s.cosmicLuckLevel) h+=createHex('✅',`Cosmic Luck ${toRoman(j+1)}`,`MAX`,'bg-cat-cosmic','',cp); else { h+=createHex('🌌',`Cosmic Luck ${toRoman(j+1)}`,`Luck++<br>(${s.cosmicLuckCost}🪙)`,'bg-cat-cosmic',`window.upgradeCosmicLuck()`,cp); break; } } } else if(i<s.playerLuckLevel) h+=createHex('✅',`Base Luck ${toRoman(i+1)}`,`MAX`,'bg-cat-player','',p); else { h+=createHex('🍀',`Base Luck ${toRoman(i+1)}`,`Luck+<br>(${s.playerLuckCost}🪙)`,'bg-root',`window.upgradePlayerLuck()`,p); break; } }
+            for (let i=0; i<=s.quickRollLevel&&i<=5; i++) { let p=hexPos(0,i+1); if(i===5&&s.quickRollLevel>=5) h+=createHex('✅',`Quick Roll MAX`,`0.5s CD`,'bg-cat-player','',p); else if(i<s.quickRollLevel) h+=createHex('✅',`Quick Roll ${toRoman(i+1)}`,`MAX`,'bg-cat-player','',p); else { h+=createHex('⚡',`Quick Roll ${toRoman(i+1)}`,`-0.5s CD<br>(${s.quickRollCost}🪙)`,'bg-root',`window.upgradeQuickRoll()`,p); break; } }
+            for (let i=0; i<=s.autoRollLevel&&i<=5; i++) { let p=hexPos(i+1,-Math.floor((i+2)/2)); if(i===5&&s.autoRollLevel>=5) { h+=createHex('✅',`Auto Roll MAX`,`MAX`,'bg-cat-player','',p); let cp=hexPos(i+2,-Math.floor((i+3)/2)); if(s.cosmicRollUnlocked) h+=createHex('🌌',`Cosmic Roll`,`MAX`,'bg-cat-cosmic','',cp); else h+=createHex('🌌',`Cosmic Roll`,`0.25s Int<br>(${s.cosmicRollCost}🪙)`,'bg-cat-cosmic',`window.buyCosmicRoll()`,cp); } else if(i<s.autoRollLevel) { h+=createHex('✅',`Auto Roll ${toRoman(i+1)}`,`MAX`,'bg-cat-player','',p); if(i===0) h+=createHex(s.hideRolls?'✅':'🙈','Hide Rolls',s.hideRolls?'MAX':'1000🪙',s.hideRolls?'bg-cat-player':'bg-root',s.hideRolls?'':'window.buyHideRolls(1000)',hexPos(1,0)); } else { h+=createHex('⚙️',`Auto Roll ${toRoman(i+1)}`,`${s.autoRollCost}🪙`,'bg-root',`window.buyAutoRoll(${s.autoRollCost})`,p); break; } }
+        } else if (view === 'rebirth') { h+=createHex('⏪','Rewards Core','Root','bg-cat-rebirth','',hexPos(0,0))+createHex('🌟','Multiplier I',`100k🪙`,'bg-cat-bm',`window.flashError(this)`,hexPos(1,0)); }
+        $('skill-canvas').innerHTML = h; 
+    }
+
+    window.renderRebirthMenu = function() {
+        const c=$('rebirth-content'), req=100000*Math.pow(10,gameState.rebirths), nm=1.0+((gameState.rebirths+1)*0.5), can=gameState.money>=req;
+        c.innerHTML=`<div style="font-size:64px;margin-top:10px;animation:bob 3s infinite;">🌌</div><h2 style="margin:0;color:#1d3557;font-size:32px;">Rebirth ${toRoman(gameState.rebirths+1)}</h2><p style="color:#4a2f1d;font-size:15px;font-weight:600;margin:0;max-width:85%;">Reset Money, Tech Tree, Backpack, and Fish for Cosmic Power.</p><div style="background:rgba(155,93,229,0.1);border:3px solid #9b5de5;border-radius:16px;padding:15px;width:100%;max-width:300px;margin-top:10px;"><div style="font-size:14px;font-weight:900;color:#9b5de5;">REWARD</div><div style="font-size:24px;font-weight:900;color:#4a2f1d;">${nm.toFixed(1)}x Multiplier</div></div><div style="background:rgba(230,57,70,0.1);border:3px solid #e63946;border-radius:16px;padding:15px;width:100%;max-width:300px;"><div style="font-size:14px;font-weight:900;color:#e63946;">COST</div><div style="font-size:24px;font-weight:900;color:${can?'#52b788':'#e63946'};">${req.toLocaleString()} 🪙</div></div><button id="rebirth-action-btn" onclick="window.doRebirth(${req},${nm})" style="margin-top:10px;background:${can?'#52b788':'#cbd5e1'};color:white;border:none;font-size:20px;font-weight:900;padding:15px 40px;border-radius:20px;box-shadow:0 6px 0 ${can?'#40916c':'#94a3b8'};cursor:${can?'pointer':'not-allowed'};transition:all 0.1s;">CONFIRM REBIRTH</button>`;
+    }
+    window.doRebirth = function(rM, nM) {
+        if(gameState.money>=rM) { AudioEngine.playSFX('rebirth'); const s=document.createElement('div'); s.style.cssText='position:absolute;top:0;left:0;width:100vw;height:100vh;background:white;z-index:99999;transition:opacity 2s;'; document.body.appendChild(s); setTimeout(()=>s.style.opacity='0',100); setTimeout(()=>s.remove(),2100);
+            gameState={...JSON.parse(JSON.stringify(defaultGameState)),rebirths:gameState.rebirths+1,rebirthMultiplier:nM,particles:[],floatingTexts:[],foodParticles:[]};
+            window.forceClose(); window.updateHUD(); window.buildInventoryGrid(); window.renderSkillTree('root'); window.saveGame();
+        } else window.flashError($('rebirth-action-btn'));
+    }
+
+    const buySk=(c,f)=>{if(gameState.money>=c){AudioEngine.playSFX('buy');gameState.money-=c;f();window.updateHUD();window.renderSkillTree();window.saveGame();}else window.flashError(event.currentTarget.closest('.hex-positioner'));};
+    window.upgradeTank=()=>buySk(gameState.skills.tankCost, ()=>{gameState.maxCapacity+=5;gameState.skills.tankLevel++;gameState.skills.tankCost=Math.floor(gameState.skills.tankCost*4.0);});
+    window.buyConsumable=(t,c)=>{if(gameState.money>=c){AudioEngine.playSFX('buy');gameState.money-=c;gameState.consumables[t]=(gameState.consumables[t]||0)+1;if(t==='flakes')gameState.skills.fishFlakes=true;if(t==='goldenFlakes')gameState.skills.unlockedGolden=true;if(t==='diamondFlakes')gameState.skills.unlockedDiamond=true;window.updateHUD();window.renderSkillTree();window.buildInventoryGrid();window.saveGame();}else window.flashError(event.currentTarget.closest('.hex-positioner'));};
+    window.unlockBait=()=>buySk(1000, ()=>{gameState.skills.unlockedBait=true;});
+    window.upgradeBait=()=>buySk(gameState.skills.baitUpgradeCost, ()=>{gameState.skills.baitLevel++;gameState.skills.baitUpgradeCost*=4;});
+    window.upgradePlayerLuck=()=>buySk(gameState.skills.playerLuckCost, ()=>{gameState.luckMultiplier+=1.0;gameState.skills.playerLuckLevel++;gameState.skills.playerLuckCost*=3.0;});
+    window.upgradeCosmicLuck=()=>buySk(gameState.skills.cosmicLuckCost, ()=>{gameState.luckMultiplier+=5.0;gameState.skills.cosmicLuckLevel++;gameState.skills.cosmicLuckCost*=4.0;});
+    window.upgradeQuickRoll=()=>buySk(gameState.skills.quickRollCost, ()=>{gameState.skills.quickRollLevel++;gameState.skills.quickRollCost*=4.0;});
+    window.buyAutoRoll=(c)=>buySk(c, ()=>{gameState.skills.autoRollLevel++;if(gameState.skills.autoRollLevel===1)gameState.skills.autoRoll1=true;gameState.skills.autoRollCost*=4.0;});
+    window.buyCosmicRoll=()=>buySk(gameState.skills.cosmicRollCost, ()=>{gameState.skills.cosmicRollUnlocked=true;});
+    window.buyHideRolls=(c)=>buySk(c, ()=>{gameState.skills.hideRolls=true;});
+    window.switchView=(v)=>{AudioEngine.playSFX('click');window.resetTreeCamera();window.renderSkillTree(v);};
+
+    window.flashError = el => { if(!el) return; AudioEngine.playSFX('error'); let t=el.id==='rebirth-action-btn'?el:el.querySelector('.hex-border'), ob=t.style.backgroundColor; t.style.backgroundColor='#e63946'; setTimeout(()=>t.style.backgroundColor=ob||'#8b6b5d',300); }
+    window.updateHUD = () => { $('money-display').innerText=Math.floor(gameState.money); $('luck-display').innerText=`${gameState.luckMultiplier.toFixed(1)}x`; $('count-display').innerText=`${gameState.activeFish.length}/${gameState.maxCapacity}`; let r=$('rebirth-pill'); if(gameState.rebirths>0){r.style.display='flex';$('rebirth-display').innerText=`${gameState.rebirthMultiplier.toFixed(1)}x`;}else r.style.display='none'; $('auto-controls').style.display=gameState.skills.autoRoll1?'flex':'none'; $('btn-hide').style.display=gameState.skills.hideRolls?'block':'none'; }
+    window.toggleAuto = () => { AudioEngine.playSFX('click'); gameState.autoRollEnabled=!gameState.autoRollEnabled; $('btn-auto').innerText=`Auto: ${gameState.autoRollEnabled?'ON':'OFF'}`; $('btn-auto').classList.toggle('active',gameState.autoRollEnabled); window.saveGame(); }
+    window.toggleHide = () => { AudioEngine.playSFX('click'); gameState.hideRollsEnabled=!gameState.hideRollsEnabled; $('btn-hide').innerText=`Hide: ${gameState.hideRollsEnabled?'ON':'OFF'}`; $('btn-hide').classList.toggle('active',gameState.hideRollsEnabled); window.saveGame(); }
+
+    window.updateFeedHint = () => { let h=$('feed-hint'), i=gameState.equippedItem; if(!i||gameState.consumables[i]<=0){h.classList.remove('show');return;} h.innerHTML=`${i==='flakes'?'🥫 Tap Tank to Feed Base Flakes!':i==='goldenFlakes'?'✨ Tap Tank to Feed Golden Flakes!':i==='bait'?'🎣 Tap Tank to Drop Bait!':'💎 Tap Tank to Feed Diamond Flakes!'}`; h.classList.add('show'); }
+    window.toggleEquipItem = i => { AudioEngine.playSFX('click'); if(gameState.equippedItem===i)gameState.equippedItem=null; else{gameState.equippedItem=i;window.forceClose();} window.updateFeedHint(); window.buildInventoryGrid(); window.saveGame(); }
+    window.feedFishes = () => { let t=gameState.equippedItem; if(!t||gameState.consumables[t]<=0)return; AudioEngine.playSFX('feed'); gameState.consumables[t]--; let bm=[2,5,15,30,50]; gameState.activeBuff={type:t,timer:t==='flakes'?30000:t==='goldenFlakes'?60000:t==='bait'?45000:120000,multiplier:t==='flakes'?2:t==='goldenFlakes'?4:t==='bait'?bm[gameState.skills.baitLevel||0]:8}; let fc=t==='flakes'?['#ff9f1c','#ffb703','#e76f51']:t==='goldenFlakes'?['#ffca3a','#ffbe0b','#fff']:t==='bait'?['#84a59d','#f28482','#f6bd60']:['#4ea8de','#90e0ef','#caf0f8']; for(let i=0;i<15;i++)gameState.foodParticles.push({x:Math.random()*(cvs.width-40)+20,y:-10-Math.random()*20,vx:(Math.random()-0.5)*0.5,vy:Math.random()*1.5+0.5,size:Math.random()*3+2,color:fc[Math.floor(Math.random()*3)]}); gameState.activeFish.forEach(f=>{f.tY=t==='bait'?Math.random()*(cvs.height*0.2)+20:Math.random()*(cvs.height*0.3)+30;f.timer=100;}); if(gameState.consumables[t]<=0)gameState.equippedItem=null; window.updateFeedHint(); window.buildInventoryGrid(); window.saveGame(); }
+
+    window.triggerIncome = () => { if(gameState.activeFish.length===0)return; let inc=0; gameState.activeFish.forEach(f=>{let g=f.income*gameState.rebirthMultiplier; inc+=g; gameState.floatingTexts.push({x:f.x,y:f.y-20,vy:1,alpha:1,amount:Number.isInteger(g)?g:g.toFixed(1)});}); gameState.money+=inc; window.updateHUD(); $('money-pill').style.transform='scale(1.1)'; setTimeout(()=>$('money-pill').style.transform='scale(1)',150); }
+    window.spawnExplosion = (x,y,c,ct) => { let lim=Math.min(ct,80); for(let i=0;i<lim;i++) gameState.particles.push({x,y,vx:(Math.random()-0.5)*8,vy:(Math.random()-0.5)*8,radius:Math.random()*6+2,color:c,alpha:1,decay:Math.random()*0.02+0.01}); }
+    
+    // NERFED AMBIENT BUBBLES
+    window.addAmbientBubble = () => { 
+        if(Math.random() > 0.01) return; // Only spawn ~1% of the time (dramatically reduced from 5%)
+        gameState.particles.push({ 
+            x: Math.random() * (cvs.width - 80) + 40, 
+            y: cvs.height - 10, 
+            vx: (Math.random() - 0.5) * 0.1, 
+            vy: -Math.random() * 0.3 - 0.2, // Rises much slower
+            radius: Math.random() * 1.5 + 0.5, // Tiny radius
+            color: "rgba(255,255,255,0.25)", // Faint opacity
+            alpha: 1.0, 
+            decay: 0.003 
+        }); 
+    }
+
+    function stepAnimationLoop(ts) {
+        if(!lastAnimTime)lastAnimTime=ts; const dt=ts-lastAnimTime; lastAnimTime=ts; ctx.clearRect(0,0,cvs.width,cvs.height); window.addAmbientBubble();
+        gameState.activeFish.forEach(f=>{f.update();f.draw();});
+        
+        // Cleaned up solid drawing for the ambient bubbles
+        for(let i=gameState.particles.length-1;i>=0;i--){let p=gameState.particles[i];p.x+=p.vx;p.y+=p.vy;p.alpha-=p.decay;ctx.beginPath();ctx.arc(p.x,p.y,p.radius,0,Math.PI*2);ctx.fillStyle=p.color;ctx.globalAlpha=Math.max(0,p.alpha);ctx.fill();ctx.globalAlpha=1.0;if(p.alpha<=0)gameState.particles.splice(i,1);} if(gameState.particles.length>300)gameState.particles.splice(0,gameState.particles.length-300);
+        
+        for(let i=gameState.foodParticles.length-1;i>=0;i--){let f=gameState.foodParticles[i];f.x+=f.vx;f.y+=f.vy;ctx.beginPath();ctx.arc(f.x,f.y,f.size,0,Math.PI*2);ctx.fillStyle=f.color;ctx.fill();if(f.y>cvs.height)gameState.foodParticles.splice(i,1);}
+        for(let i=gameState.floatingTexts.length-1;i>=0;i--){let t=gameState.floatingTexts[i];t.y-=t.vy;t.alpha-=0.02;ctx.fillStyle=`rgba(255,255,255,${Math.max(0,t.alpha)})`;ctx.font="bold 16px Fredoka";ctx.textAlign="center";ctx.fillText("+"+t.amount,t.x,t.y);if(t.alpha<=0)gameState.floatingTexts.splice(i,1);} if(gameState.floatingTexts.length>50)gameState.floatingTexts.splice(0,gameState.floatingTexts.length-50);
+        if($('roll-overlay').classList.contains('active')&&revealingFish){let r=$('reveal-canvas').getContext('2d'); r.clearRect(0,0,200,200); revealingFish.draw(r);}
+        
+        let now=Date.now(), cd=Math.max(500,3000-(gameState.skills.quickRollLevel*500)), b=$('btn-roll');
+        if(now-lastRollTime<cd) { b.style.filter='grayscale(100%) opacity(0.6)'; b.style.pointerEvents='none'; b.innerHTML=`<span class="btn-icon">⏳</span> ${((cd-(now-lastRollTime))/1000).toFixed(1)}s`; }
+        else { b.style.filter='none'; b.style.pointerEvents='auto'; b.innerHTML=`<span class="btn-icon">🎲</span> Roll`; }
+
+        if(gameState.autoRollEnabled) { let iv=gameState.skills.cosmicRollUnlocked?250:gameState.skills.autoRollLevel>=5?500:gameState.skills.autoRollLevel===4?1000:gameState.skills.autoRollLevel===3?1500:gameState.skills.autoRollLevel===2?3500:8000; if(ts-lastAutoRollTime>iv) { lastAutoRollTime=ts; lastRollTime=Date.now(); window.triggerRoll(false); } }
+        let bt=$('buff-timer'); if(gameState.activeBuff.timer>0) { gameState.activeBuff.timer-=dt; bt.innerHTML=`SPEED x${gameState.activeBuff.multiplier} (${Math.ceil(gameState.activeBuff.timer/1000)}s)`; bt.classList.add('show'); if(gameState.activeBuff.timer<=0){gameState.activeBuff.timer=0;gameState.activeBuff.multiplier=1;bt.classList.remove('show');} } else bt.classList.remove('show');
+        incomeAccumulator+=dt*(gameState.activeBuff.timer>0?gameState.activeBuff.multiplier:1); if(incomeAccumulator>=2000){incomeAccumulator-=2000;window.triggerIncome();}
+        requestAnimationFrame(stepAnimationLoop);
+    } requestAnimationFrame(stepAnimationLoop);
+
+    window.triggerRoll = m => {
+        if($('roll-overlay').classList.contains('active')&&(!gameState.hideRollsEnabled||!gameState.skills.hideRolls))return;
+        let n=Date.now(), cd=Math.max(500,3000-(gameState.skills.quickRollLevel*500)); if(m){if(n-lastRollTime<cd){AudioEngine.playSFX('error');return;}lastRollTime=n;}
+        AudioEngine.playSFX('roll'); let pl=[], tw=0; fishMatrix.forEach(f=>{let w=f.weight*(f.tier!=="Common"?gameState.luckMultiplier:1); pl.push({f,w}); tw+=w;});
+        let tv=Math.random()*tw, sel=pl[0].f; for(let e of pl){if(tv<e.w){sel=e.f;break;}tv-=e.w;}
+        if(gameState.skills.hideRolls&&gameState.hideRollsEnabled) window.executeHiddenRoll(sel); else window.executeCinematicSequence(sel);
+    }
+    window.processFishGain = f => {
+        gameState.inventory.push(f);
+        if(gameState.activeFish.length<gameState.maxCapacity) {
+            gameState.activeFish.push(new FishEntity(f));
+        } else {
+            let wi=-1, hw=-1;
+            gameState.activeFish.forEach((a,i)=>{if(a.weight>hw){hw=a.weight;wi=i;}});
+            if(f.weight<hw) { gameState.activeFish.splice(wi,1); gameState.activeFish.push(new FishEntity(f)); }
+        }
+        window.updateHUD(); window.buildInventoryGrid();
+    }
+
+    window.executeHiddenRoll = f => {
+        window.spawnExplosion(cvs.width/2,cvs.height*0.5,f.color,tierStyles[f.tier].p/2);
+        window.processFishGain(f);
+        AudioEngine.playSFX('reveal',f.tier);
+        const c=$('toast-container'), t=document.createElement('div');
+        t.className='toast'; t.style.borderBottom=`3px solid ${tierStyles[f.tier].color}`;
+        const odds = Math.round(fishMatrix.reduce((s,x)=>s+x.weight,0)/f.weight).toLocaleString();
+        t.innerHTML=`<span style="color:${tierStyles[f.tier].color}">${f.name}</span><span class="toast-odds">1 / ${odds}</span>`;
+        c.appendChild(t); setTimeout(()=>t.remove(),2000);
+    }
+
+    window.executeCinematicSequence = f => {
+        const o=$('roll-overlay'); $('reveal-title').innerText=f.name;
+        $('reveal-odds').innerText='1 / '+Math.round(fishMatrix.reduce((s,x)=>s+x.weight,0)/f.weight).toLocaleString();
+        $('reveal-tier').innerText=f.tier; $('reveal-tier').style.backgroundColor=tierStyles[f.tier].color;
+        revealingFish=new FishEntity(f); revealingFish.x=100; revealingFish.y=100; revealingFish.size=f.size*2.5; revealingFish.flip=1; revealingFish.vx=0; revealingFish.vy=0;
+        o.classList.add('active'); AudioEngine.playSFX('reveal',f.tier);
+        setTimeout(()=>{window.spawnExplosion(cvs.width/2,cvs.height*0.5,f.color,tierStyles[f.tier].p); window.processFishGain(f); o.classList.remove('active');},1800);
+    }
+
+    window.buildInventoryGrid = () => {
+        let h='';
+        const rc=(t,ic,n,c,ac)=>{
+            if(gameState.consumables[t]>0){
+                let a=gameState.equippedItem===t;
+                h+=`<div class="grid-slot" onclick="window.toggleEquipItem('${t}')" style="border-color:${c};background:${a?ac:'#fff'};"><div style="font-size:38px;margin-bottom:4px;filter:drop-shadow(0 4px 2px rgba(0,0,0,0.15));line-height:1;">${ic}</div><div style="font-size:11px;font-weight:700;color:${c}">Item</div><div style="font-size:13px;color:#1d3557;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;width:100%;">${n}</div><div class="count-badge" style="background:${a?'#40916c':'#6f4228'}">${a?'UNEQUIP':'EQUIP'} (x${gameState.consumables[t]})</div></div>`;
+            }
+        };
+
+        rc('flakes','🥫','Fish Flakes','#ff9f1c','#e2f0cb');
+        rc('goldenFlakes','✨','Golden Flakes','#ffca3a','#fff8cc');
+        rc('diamondFlakes','💎','Diamond Flakes','#4ea8de','#cceeff');
+        rc('bait','🎣','Bait','#f28482','#fcebe9');
+
+        if(!gameState.inventory.length&&!gameState.consumables.flakes&&!gameState.consumables.goldenFlakes&&!gameState.consumables.diamondFlakes&&!gameState.consumables.bait){
+            $('inventory-target').innerHTML=`<div style="grid-column:span 3;text-align:center;color:#94a3b8;padding:20px;">Empty Backpack</div>`;return;
+        }
+        
+        let gi={};
+        gameState.inventory.forEach(i=>{if(!gi[i.name]){gi[i.name]={...i,count:1};}else gi[i.name].count++;});
+        const iC=document.createElement('canvas'); iC.width=80; iC.height=80; const iX=iC.getContext('2d');
+
+        Object.values(gi).forEach(i=>{
+            iX.clearRect(0,0,80,80); let d=new FishEntity(i); d.x=40; d.y=40; d.size=i.size*0.9; d.flip=1; d.vx=0; d.vy=0; d.draw(iX);
+            let imgData = iC.toDataURL();
+            h+=`<div class="grid-slot" style="border-color:${tierStyles[i.tier].color}"><img src="${imgData}" class="fish-snapshot"><div style="font-size:11px;font-weight:700;color:${tierStyles[i.tier].color}">${i.tier}</div><div style="font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;width:100%;color:#1d3557;">${i.name}</div><div class="count-badge">x${i.count}</div></div>`;
+        });
+        $('inventory-target').innerHTML=h;
+    }
+
+    window.openModal = id => {
+        AudioEngine.playSFX('click');
+        if (id==='modal-skills') { if(!$('modal-skills').classList.contains('active'))window.resetTreeCamera(); window.renderSkillTree(); }
+        if (id==='modal-rebirth') window.renderRebirthMenu();
+        $(id).classList.add('active');
+    }
+    
+    window.closeModal = e => { if(e.target.classList.contains('modal-overlay')) window.forceClose(); }
+    window.forceClose = () => { AudioEngine.playSFX('click'); document.querySelectorAll('.modal-overlay').forEach(el=>el.classList.remove('active')); }
+</script>
+
+</body>
+</html>
